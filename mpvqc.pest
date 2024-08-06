@@ -1,0 +1,35 @@
+digit = { '0'..'9' }
+newline = { "\r\n" | "\n" }
+
+// Define valid hour, minute, and second rules using range logic
+hour = { 
+    "00" |
+    "0" ~ digit |    // 01-09
+    "1" ~ digit |    // 10-19
+    "2" ~ ('0'..'3') // 20-23
+}
+
+minute = { 
+    "00" |
+    "0" ~ digit | // 01-09
+    "1" ~ digit | // 10-19
+    "2" ~ digit | // 20-29
+    "3" ~ digit | // 30-39
+    "4" ~ digit | // 40-49
+    "5" ~ digit   // 50-59
+}
+
+second = { minute }
+
+file_line_type = { "date" | "nickname" | "generator" | "path" }
+file_line = { file_line_type ~ " "+ ~ ": " ~ (!newline ~ ANY)+ ~ newline }
+file_section = { "[FILE]" ~ newline ~ file_line+ ~ newline }
+
+timecode = { hour ~ ":" ~ minute ~ ":" ~ second }
+issue_type = { "Translation" | "Spelling" | "Punctuation" | "Phrasing" | "Timing" | "Typeset" | "Linebreak" | "Note" }
+issue_text = { (!newline ~ ANY)+ }
+
+data_line = { "[" ~ timecode ~ "]" ~ " " ~ "[" ~ issue_type ~ "]" ~ " " ~ issue_text ~ newline }
+data_section = { "[DATA]" ~ newline ~ data_line+ ~ "# total lines: " ~ digit+ }
+
+qc_file = { SOI ~ file_section ~ data_section ~ EOI }
