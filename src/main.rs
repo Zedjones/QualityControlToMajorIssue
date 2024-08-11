@@ -1,9 +1,16 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use dotenv::dotenv;
+
+use clap::Parser as ClapParser;
+use config::Config;
 use hhmmss::Hhmmss;
-use pest::Parser;
+use inquire::{ui::RenderConfig, Editor};
+use pest::{iterators::Pair, Parser};
 use pest_derive::Parser;
+
+mod config;
 
 #[derive(Parser)]
 #[grammar = "mpvqc.pest"]
@@ -28,7 +35,7 @@ fn format_into_md(issue_map: HashMap<String, Vec<QCIssue>>) -> String {
         .into_iter()
         .collect::<Vec<(String, Vec<QCIssue>)>>();
 
-    issue_map_vec.sort_by(|(_, issues), (_, other_issues)| issues.len().cmp(&other_issues.len()));
+    issue_map_vec.sort_by_key(|(_, issues)| issues.len());
     issue_map_vec.reverse();
 
     for (issue_type, issues) in issue_map_vec.iter_mut() {
@@ -36,51 +43,59 @@ fn format_into_md(issue_map: HashMap<String, Vec<QCIssue>>) -> String {
         issues.sort();
         for issue in issues {
             markdown_string +=
-                &format!("- [ ] {} - {}\n", issue.timecode.hhmmss(), issue.issue_text);
+                &format!("* [ ] {} - {}\n", issue.timecode.hhmmss(), issue.issue_text);
         }
         markdown_string += "\n";
     }
     markdown_string
 }
 
-fn main() -> anyhow::Result<()> {
-    let test_str = include_str!("../[QC]_[WhiteClover] CLANNAD - 02 (BD 1080p) [68FC64DD]_ame.txt");
-    let pairs = MPVQCParser::parse(Rule::qc_file, test_str)?;
+fn parse_data_line(pair: Pair<Rule>) -> QCIssue {
+    let (mut timecode, mut issue_type, mut issue_text) =
+        (Duration::new(0, 0), String::new(), String::new());
+
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::timecode => {
+                let split_iter: Vec<&str> = inner_pair.as_str().split(":").collect();
+                let (hour, minute, second) = (
+                    split_iter[0].parse::<u16>().unwrap(),
+                    split_iter[1].parse::<u16>().unwrap(),
+                    split_iter[2].parse::<u16>().unwrap(),
+                );
+                timecode = Duration::from_secs(((hour * 60 * 60) + (minute * 60) + second) as u64);
+            }
+            Rule::issue_type => {
+                issue_type = inner_pair.as_str().to_string();
+            }
+            Rule::issue_text => {
+                issue_text = inner_pair.as_str().to_string();
+            }
+            _ => {}
+        }
+    }
+
+    QCIssue {
+        timecode,
+        issue_type,
+        issue_text,
+    }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    dotenv().ok();
+
+    let args: Config = Config::parse();
+
+    let qc_file_str = args.read_qc_file()?;
+
+    let pairs = MPVQCParser::parse(Rule::qc_file, &qc_file_str)?;
     let mut issues = Vec::new();
     for pair in pairs.flatten() {
         match pair.as_rule() {
             Rule::data_line => {
-                let (mut timecode, mut issue_type, mut issue_text) =
-                    (Duration::new(0, 0), String::new(), String::new());
-
-                for inner_pair in pair.into_inner() {
-                    match inner_pair.as_rule() {
-                        Rule::timecode => {
-                            let split_iter: Vec<&str> = inner_pair.as_str().split(":").collect();
-                            let (hour, minute, second) = (
-                                split_iter[0].parse::<u16>().unwrap(),
-                                split_iter[1].parse::<u16>().unwrap(),
-                                split_iter[2].parse::<u16>().unwrap(),
-                            );
-                            timecode = Duration::from_secs(
-                                ((hour * 60 * 60) + (minute * 60) + second) as u64,
-                            );
-                        }
-                        Rule::issue_type => {
-                            issue_type = inner_pair.as_str().to_string();
-                        }
-                        Rule::issue_text => {
-                            issue_text = inner_pair.as_str().to_string();
-                        }
-                        _ => {}
-                    }
-                }
-
-                issues.push(QCIssue {
-                    timecode,
-                    issue_type,
-                    issue_text,
-                });
+                issues.push(parse_data_line(pair));
             }
             _ => {}
         }
@@ -93,10 +108,17 @@ fn main() -> anyhow::Result<()> {
     });
 
     let markdown = format_into_md(issue_map);
-    //println!("{}", markdown);
+    clearscreen::clear()?;
 
-    let edited = edit::edit(markdown)?;
-    termimad::print_text(&edited);
+    let text = termimad::term_text(&markdown).to_string();
+    let edited = Editor::new(&format!("Processed Markdown: \n{}", text))
+        .with_file_extension(".md")
+        .with_predefined_text(&markdown)
+        .with_formatter(&|_| String::new())
+        .with_render_config(RenderConfig::empty())
+        .prompt()?;
+
+    args.create_issue(edited).await?;
 
     Ok(())
 }

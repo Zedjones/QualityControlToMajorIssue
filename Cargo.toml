@@ -7,8 +7,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
-edit = "0.1.5"
+clearscreen = "3.0.0"
+inquire = { version = "0.7.5", features = ["editor"] }
 hhmmss = "0.1.0"
 pest = "2.7.11"
 pest_derive = "2.7.11"
 termimad = "0.29.4"
+octocrab = "0.39.0"
+clap = { version = "4.5.15", features = ["derive", "env"] }
+dotenv = "0.15.0"
+tokio = { version = "1.39.2", features = ["full"] }
