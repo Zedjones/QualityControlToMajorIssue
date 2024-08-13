@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use colored::Colorize;
 use dotenv::dotenv;
 
 use clap::Parser as ClapParser;
 use config::Config;
+use editor::Editor;
 use hhmmss::Hhmmss;
-use inquire::{ui::RenderConfig, Editor};
 use pest::{iterators::Pair, Parser};
 use pest_derive::Parser;
 
 mod config;
+mod editor;
 
 #[derive(Parser)]
 #[grammar = "mpvqc.pest"]
@@ -110,15 +112,18 @@ async fn main() -> anyhow::Result<()> {
     let markdown = format_into_md(issue_map);
     clearscreen::clear()?;
 
-    let text = termimad::term_text(&markdown).to_string();
-    let edited = Editor::new(&format!("Processed Markdown: \n{}", text))
-        .with_file_extension(".md")
-        .with_predefined_text(&markdown)
-        .with_formatter(&|_| String::new())
-        .with_render_config(RenderConfig::empty())
-        .prompt()?;
+    //let text = termimad::term_text(&markdown).to_string();
+    let edited: String;
+    if args.skip_edit {
+        edited = markdown;
+    } else {
+        let mut editor = Editor::new(markdown);
+        edited = editor.prompt()?;
+    }
 
+    println!("{}", "Uploading issue...".blue());
     args.create_issue(edited).await?;
+    println!("{}", "Issue uploaded!".green());
 
     Ok(())
 }

@@ -1,0 +1,50 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'qctomi'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=qctomi",
+                    "--package=QualityControlToMajorIssue"
+                ],
+                "filter": {
+                    "name": "qctomi",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--qc-file",
+                "[QC]_[WhiteClover] CLANNAD - 02 (BD 1080p) [68FC64DD]_ame.txt",
+                "--issue-title",
+                "test"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'qctomi'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=qctomi",
+                    "--package=QualityControlToMajorIssue"
+                ],
+                "filter": {
+                    "name": "qctomi",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

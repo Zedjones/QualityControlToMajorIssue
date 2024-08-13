@@ -1,4 +1,5 @@
 digit = { '0'..'9' }
+alpha = { 'a'..'z' | 'A'..'Z' }
 newline = { "\r\n" | "\n" }
 
 // Define valid hour, minute, and second rules using range logic
@@ -26,7 +27,7 @@ file_line = { file_line_type ~ " "+ ~ ": " ~ (!newline ~ ANY)+ ~ newline }
 file_section = { "[FILE]" ~ newline ~ file_line+ ~ newline }
 
 timecode = { hour ~ ":" ~ minute ~ ":" ~ second }
-issue_type = { "Translation" | "Spelling" | "Punctuation" | "Phrasing" | "Timing" | "Typeset" | "Linebreak" | "Note" }
+issue_type = { alpha+ }
 issue_text = { (!newline ~ ANY)+ }
 
 data_line = { "[" ~ timecode ~ "]" ~ " " ~ "[" ~ issue_type ~ "]" ~ " " ~ issue_text ~ newline }

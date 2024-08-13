@@ -19,6 +19,9 @@ pub(crate) struct Config {
 
     #[clap(short, long)]
     qc_file: PathBuf,
+
+    #[clap(short, long, action)]
+    pub(crate) skip_edit: bool,
 }
 
 impl Config {
