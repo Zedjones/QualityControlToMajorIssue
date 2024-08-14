@@ -5,22 +5,27 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub(crate) struct Config {
-    #[clap(long, env)]
+    #[clap(long, env, help = "GitHub token with access to modify issues")]
     github_token: String,
 
-    #[clap(long, env)]
+    #[clap(long, env, help = "Owner of target GitHub repo")]
     github_owner: String,
 
-    #[clap(long, env)]
+    #[clap(long, env, help = "Name of target GitHub repo")]
     github_repo: String,
 
-    #[clap(short, long)]
+    #[clap(short, long, help = "Title for issue being created")]
     issue_title: String,
 
-    #[clap(short, long)]
+    #[clap(short, long, help = "Path to the mpvQC file to be proceesed")]
     qc_file: PathBuf,
 
-    #[clap(short, long, action)]
+    #[clap(
+        short,
+        long,
+        action,
+        help = "Skips the editing prompt, useful for scripts"
+    )]
     pub(crate) skip_edit: bool,
 }
 
