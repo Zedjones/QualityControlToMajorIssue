@@ -1,12 +1,14 @@
 use std::{
-    io::{Read, Seek, Write},
+    io::{self, Read, Seek, Write},
     process::exit,
 };
 
 use colored::Colorize;
 use crossterm::{
     event::{read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    style::Print,
+    terminal::{disable_raw_mode, enable_raw_mode, size},
+    ExecutableCommand,
 };
 use edit::Builder;
 
@@ -22,6 +24,28 @@ impl Editor {
             preview_display: true,
         }
     }
+    fn write_text(&self) -> anyhow::Result<()> {
+        let mut stdout = io::stdout();
+        let output = format!(
+            "Processed text:\n{}\n({}) to open in {}, ({}) to toggle Markdown preview, ({}) to submit\n",
+            {
+                if self.preview_display {
+                    termimad::term_text(&self.current_text).to_string()
+                } else {
+                    self.current_text.clone()
+                }
+            },
+            "e".cyan(),
+            edit::get_editor()?.to_str().unwrap().split({
+                if cfg!(unix) { "/" }
+                else { "\\" }
+            }).last().unwrap(),
+            "p".bright_red(),
+            "enter".green()
+        );
+        stdout.execute(Print(output))?;
+        Ok(())
+    }
     pub(crate) fn prompt(&mut self) -> anyhow::Result<String> {
         let mut file = Builder::new().suffix(".md").tempfile()?;
         file.write_all(self.current_text.as_bytes())?;
@@ -36,26 +60,10 @@ impl Editor {
                 KeyEventKind::Press
             }
         };
-        loop {
-            let output = format!(
-                "Processed text:\n{}\n({}) to open in {}, ({}) to toggle Markdown preview, ({}) to submit",
-                {
-                    if self.preview_display {
-                        termimad::term_text(&self.current_text).to_string()
-                    } else {
-                        self.current_text.clone()
-                    }
-                },
-                "e".blue(),
-                edit::get_editor()?.to_str().unwrap().split({
-                    if cfg!(unix) { "/" }
-                    else { "\\" }
-                }).last().unwrap(),
-                "p".purple(),
-                "enter".green()
-            );
-            println!("{}", output);
+        let mut current_dimensions = size()?;
 
+        self.write_text()?;
+        loop {
             enable_raw_mode()?;
             match read()? {
                 Event::Key(KeyEvent {
@@ -93,10 +101,16 @@ impl Editor {
                     println!("Operation cancelled. Exiting...");
                     exit(1);
                 }
-                _ => {}
+                Event::Resize(col, row) if (col, row) != current_dimensions => {
+                    current_dimensions = (col, row);
+                }
+                _ => {
+                    continue;
+                }
             }
-            disable_raw_mode()?;
             clearscreen::clear()?;
+            disable_raw_mode()?;
+            self.write_text()?;
         }
         Ok(self.current_text.clone())
     }
