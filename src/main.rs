@@ -125,17 +125,9 @@ async fn main() -> anyhow::Result<()> {
         map
     });
 
-    // for (_, issues) in &issue_map {
-    //     for issue in issues {
-    //         println!("{:#?}", issue);
-    //     }
-    // }
-    // todo!();
-
     let markdown = format_into_md(&args, issue_map);
     clearscreen::clear()?;
 
-    //let text = termimad::term_text(&markdown).to_string();
     let edited: String;
     if args.skip_edit {
         edited = markdown;
