@@ -19,6 +19,8 @@ tokio = { version = "1.39.2", features = ["full"] }
 edit = "0.1.5"
 crossterm = "0.28.1"
 colored = "2.1.0"
+aspasia = "0.2.1"
+inquire = "0.7.5"
 
 [[bin]]
 name = "qctomi"

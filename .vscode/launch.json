@@ -23,7 +23,9 @@
                 "--qc-file",
                 "[QC]_[WhiteClover] CLANNAD - 02 (BD 1080p) [68FC64DD]_ame.txt",
                 "--issue-title",
-                "test"
+                "test",
+                "--dialogue-file",
+                "New World - 01.ass"
             ],
             "cwd": "${workspaceFolder}"
         },

@@ -1,37 +1,22 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use colored::Colorize;
 use dotenv::dotenv;
 
 use clap::Parser as ClapParser;
-use config::Config;
+use config::{Config, ReferenceFormat};
 use editor::Editor;
 use hhmmss::Hhmmss;
 use pest::{iterators::Pair, Parser};
-use pest_derive::Parser;
+use qc_issue::{MPVQCParser, QCIssue, Rule};
+use subs::Subs;
 
 mod config;
 mod editor;
+mod qc_issue;
+mod subs;
 
-#[derive(Parser)]
-#[grammar = "mpvqc.pest"]
-pub struct MPVQCParser;
-
-#[derive(Debug, PartialEq, PartialOrd, Eq)]
-pub struct QCIssue {
-    pub timecode: Duration,
-    pub issue_type: String,
-    pub issue_text: String,
-}
-
-impl Ord for QCIssue {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.timecode.cmp(&other.timecode)
-    }
-}
-
-fn format_into_md(issue_map: HashMap<String, Vec<QCIssue>>) -> String {
+fn format_into_md(config: &Config, issue_map: HashMap<String, Vec<QCIssue>>) -> String {
     let mut markdown_string = String::new();
     let mut issue_map_vec = issue_map
         .into_iter()
@@ -44,6 +29,26 @@ fn format_into_md(issue_map: HashMap<String, Vec<QCIssue>>) -> String {
         markdown_string += &format!("# {}\n", issue_type);
         issues.sort();
         for issue in issues {
+            if config.reference_options.include_references
+                && config
+                    .reference_options
+                    .reference_categories
+                    .contains(&issue_type)
+            {
+                if issue.matching_lines.is_empty() {
+                    markdown_string += "> \n";
+                } else {
+                    for line in &issue.matching_lines {
+                        markdown_string += &format!("> {}\n", {
+                            if config.reference_options.reference_format == ReferenceFormat::Full {
+                                line.0.to_string()
+                            } else {
+                                line.0.text.clone()
+                            }
+                        });
+                    }
+                }
+            }
             markdown_string +=
                 &format!("* [ ] {} - {}\n", issue.timecode.hhmmss(), issue.issue_text);
         }
@@ -52,7 +57,7 @@ fn format_into_md(issue_map: HashMap<String, Vec<QCIssue>>) -> String {
     markdown_string
 }
 
-fn parse_data_line(pair: Pair<Rule>) -> QCIssue {
+fn parse_data_line(pair: Pair<Rule>, sub_file: &Option<Subs>) -> QCIssue {
     let (mut timecode, mut issue_type, mut issue_text) =
         (Duration::new(0, 0), String::new(), String::new());
 
@@ -77,10 +82,16 @@ fn parse_data_line(pair: Pair<Rule>) -> QCIssue {
         }
     }
 
+    let matching_lines = sub_file
+        .as_ref()
+        .map(|sub_file| sub_file.choices_for_timecode(&timecode))
+        .unwrap_or(Vec::new());
+
     QCIssue {
         timecode,
         issue_type,
         issue_text,
+        matching_lines,
     }
 }
 
@@ -92,12 +103,17 @@ async fn main() -> anyhow::Result<()> {
 
     let qc_file_str = args.read_qc_file()?;
 
+    let dialogue_file = args.read_dialogue_file()?;
+    let sub_file: Option<Subs> = dialogue_file.map(|dialogue| Subs {
+        subtitle_file: dialogue,
+    });
+
     let pairs = MPVQCParser::parse(Rule::qc_file, &qc_file_str)?;
     let mut issues = Vec::new();
     for pair in pairs.flatten() {
         match pair.as_rule() {
             Rule::data_line => {
-                issues.push(parse_data_line(pair));
+                issues.push(parse_data_line(pair, &sub_file));
             }
             _ => {}
         }
@@ -109,7 +125,14 @@ async fn main() -> anyhow::Result<()> {
         map
     });
 
-    let markdown = format_into_md(issue_map);
+    // for (_, issues) in &issue_map {
+    //     for issue in issues {
+    //         println!("{:#?}", issue);
+    //     }
+    // }
+    // todo!();
+
+    let markdown = format_into_md(&args, issue_map);
     clearscreen::clear()?;
 
     //let text = termimad::term_text(&markdown).to_string();
@@ -121,9 +144,7 @@ async fn main() -> anyhow::Result<()> {
         edited = editor.prompt()?;
     }
 
-    println!("{}", "Uploading issue...".blue());
-    args.create_issue(edited).await?;
-    println!("{}", "Issue uploaded!".green());
+    args.output_action(edited).await?;
 
     Ok(())
 }
