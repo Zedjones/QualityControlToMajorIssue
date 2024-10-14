@@ -15,19 +15,21 @@ use edit::Builder;
 pub(crate) struct Editor {
     current_text: String,
     preview_display: bool,
+    creating_issue: bool,
 }
 
 impl Editor {
-    pub(crate) fn new(starting_text: String) -> Self {
+    pub(crate) fn new(starting_text: String, creating_issue: bool) -> Self {
         Editor {
             current_text: starting_text,
             preview_display: true,
+            creating_issue,
         }
     }
     fn write_text(&self) -> anyhow::Result<()> {
         let mut stdout = io::stdout();
         let output = format!(
-            "Processed text:\n{}\n({}) to open in {}, ({}) to toggle Markdown preview, ({}) to submit\n",
+            "Processed text:\n{}\n({}) to open in {}, ({}) to toggle Markdown preview, ({}) to {}\n",
             {
                 if self.preview_display {
                     termimad::term_text(&self.current_text).to_string()
@@ -41,7 +43,14 @@ impl Editor {
                 else { "\\" }
             }).last().unwrap(),
             "p".bright_red(),
-            "enter".green()
+            "enter".green(),
+            {
+                if self.creating_issue {
+                    "submit issue"
+                } else {
+                    "accept"
+                }
+            }
         );
         stdout.execute(Print(output))?;
         Ok(())

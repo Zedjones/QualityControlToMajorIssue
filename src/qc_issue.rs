@@ -52,7 +52,7 @@ pub struct QCIssue {
     pub timecode: Duration,
     pub issue_type: String,
     pub issue_text: String,
-    pub matching_lines: Vec<ASSEvent>,
+    pub matching_lines: Vec<String>,
 }
 
 impl Ord for QCIssue {

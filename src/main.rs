@@ -7,6 +7,7 @@ use clap::Parser as ClapParser;
 use config::{Config, ReferenceFormat};
 use editor::Editor;
 use hhmmss::Hhmmss;
+use inquire::MultiSelect;
 use pest::{iterators::Pair, Parser};
 use qc_issue::{MPVQCParser, QCIssue, Rule};
 use subs::Subs;
@@ -39,13 +40,7 @@ fn format_into_md(config: &Config, issue_map: HashMap<String, Vec<QCIssue>>) -> 
                     markdown_string += "> \n";
                 } else {
                     for line in &issue.matching_lines {
-                        markdown_string += &format!("> {}\n", {
-                            if config.reference_options.reference_format == ReferenceFormat::Full {
-                                line.0.to_string()
-                            } else {
-                                line.0.text.clone()
-                            }
-                        });
+                        markdown_string += &format!("> {}\n", line);
                     }
                 }
             }
@@ -57,7 +52,11 @@ fn format_into_md(config: &Config, issue_map: HashMap<String, Vec<QCIssue>>) -> 
     markdown_string
 }
 
-fn parse_data_line(pair: Pair<Rule>, sub_file: &Option<Subs>) -> QCIssue {
+fn parse_data_line(
+    config: &Config,
+    pair: Pair<Rule>,
+    sub_file: &Option<Subs>,
+) -> anyhow::Result<QCIssue> {
     let (mut timecode, mut issue_type, mut issue_text) =
         (Duration::new(0, 0), String::new(), String::new());
 
@@ -82,17 +81,55 @@ fn parse_data_line(pair: Pair<Rule>, sub_file: &Option<Subs>) -> QCIssue {
         }
     }
 
-    let matching_lines = sub_file
+    let matching_events = sub_file
         .as_ref()
         .map(|sub_file| sub_file.choices_for_timecode(&timecode))
         .unwrap_or(Vec::new());
 
-    QCIssue {
+    let matching_lines = if !config.reference_options.skip_reference_picker
+        && matching_events.len() > 1
+        && config
+            .reference_options
+            .reference_categories
+            .contains(&issue_type)
+    {
+        clearscreen::clear()?;
+        MultiSelect::new(
+            &format!(
+                "Processing report: {}\nSelect the line references you wish to include:",
+                issue_text
+            ),
+            matching_events
+                .iter()
+                .map(|line| {
+                    if config.reference_options.reference_format == ReferenceFormat::Full {
+                        line.0.to_string()
+                    } else {
+                        line.0.text.clone()
+                    }
+                })
+                .collect(),
+        )
+        .prompt()?
+    } else {
+        matching_events
+            .iter()
+            .map(|line| {
+                if config.reference_options.reference_format == ReferenceFormat::Full {
+                    line.0.to_string()
+                } else {
+                    line.0.text.clone()
+                }
+            })
+            .collect()
+    };
+
+    Ok(QCIssue {
         timecode,
         issue_type,
         issue_text,
         matching_lines,
-    }
+    })
 }
 
 #[tokio::main]
@@ -113,7 +150,7 @@ async fn main() -> anyhow::Result<()> {
     for pair in pairs.flatten() {
         match pair.as_rule() {
             Rule::data_line => {
-                issues.push(parse_data_line(pair, &sub_file));
+                issues.push(parse_data_line(&args, pair, &sub_file)?);
             }
             _ => {}
         }
@@ -132,7 +169,7 @@ async fn main() -> anyhow::Result<()> {
     if args.skip_edit {
         edited = markdown;
     } else {
-        let mut editor = Editor::new(markdown);
+        let mut editor = Editor::new(markdown, args.issue_options.create_issue);
         edited = editor.prompt()?;
     }
 

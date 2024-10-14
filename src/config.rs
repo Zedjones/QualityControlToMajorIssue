@@ -58,13 +58,13 @@ pub(crate) struct ReferenceConfig {
     #[clap(
         long, 
         help = "Categories of reports to include references for",
-         help_heading = Some("Reference Config"), 
-         default_values = &["Linebreak", "Translation", "Spelling", "Punctuation", "Phrasing", "Note"]
+        help_heading = Some("Reference Config"), 
+        default_values = &["Linebreak", "Translation", "Spelling", "Punctuation", "Phrasing", "Note"]
     )]
     pub reference_categories: Vec<String>,
 
     #[clap(long, help = "Skips picker for refs; will include all refs if set", action, help_heading = Some("Reference Config"))]
-    skip_reference_picker: bool,
+    pub skip_reference_picker: bool,
 
     #[clap(
         value_enum,
@@ -103,10 +103,10 @@ pub(crate) struct Config {
     pub(crate) skip_edit: bool,
 
     #[command(flatten)]
-    pub reference_options: ReferenceConfig,
+    pub(crate) reference_options: ReferenceConfig,
 
     #[command(flatten)]
-    issue_options: IssueConfig,
+    pub(crate) issue_options: IssueConfig,
 }
 
 impl Config {
