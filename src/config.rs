@@ -80,8 +80,6 @@ pub(crate) struct ReferenceConfig {
 #[command(version, about, long_about = None)]
 pub(crate) struct Config {
     #[clap(
-        short,
-        long,
         help = "Path to the mpvQC file to be processed",
         required = true
     )]
