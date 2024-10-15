@@ -96,6 +96,14 @@ pub(crate) struct Config {
         short,
         long,
         action,
+        help = "Group dialogue reports together; the categories to group together will be sourced from --reference-categories",
+    )]
+    pub group_dialogue: bool,
+
+    #[clap(
+        short,
+        long,
+        action,
         help = "Skips the editing prompt; useful for scripts"
     )]
     pub(crate) skip_edit: bool,

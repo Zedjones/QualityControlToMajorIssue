@@ -155,12 +155,24 @@ async fn main() -> anyhow::Result<()> {
             _ => {}
         }
     }
-    let issue_map = issues.into_iter().fold(HashMap::new(), |mut map, issue| {
+    let mut issue_map = issues.into_iter().fold(HashMap::new(), |mut map, issue| {
         map.entry(issue.issue_type.clone())
             .or_insert_with(Vec::new)
             .push(issue);
         map
     });
+
+    // If user wishes to group dialogue, group using categories from `--reference-categories`
+    if args.group_dialogue {
+        let mut dialogue_vec: Vec<QCIssue> = Vec::new();
+        for category in &args.reference_options.reference_categories {
+            if let Some((_, to_merge)) = issue_map.remove_entry(category) {
+                dialogue_vec.extend(to_merge);
+            }
+        }
+        dialogue_vec.sort();
+        issue_map.insert("Dialogue".into(), dialogue_vec);
+    }
 
     let markdown = format_into_md(&args, issue_map);
     clearscreen::clear()?;
