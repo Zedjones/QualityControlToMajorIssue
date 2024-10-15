@@ -136,7 +136,7 @@ fn parse_data_line(
 async fn main() -> anyhow::Result<()> {
     dotenv().ok();
 
-    let args: Config = Config::parse();
+    let mut args: Config = Config::parse();
 
     let qc_file_str = args.read_qc_file()?;
 
@@ -172,6 +172,7 @@ async fn main() -> anyhow::Result<()> {
         }
         dialogue_vec.sort();
         issue_map.insert("Dialogue".into(), dialogue_vec);
+        args.reference_options.reference_categories = vec!["Dialogue".into()];
     }
 
     let markdown = format_into_md(&args, issue_map);
